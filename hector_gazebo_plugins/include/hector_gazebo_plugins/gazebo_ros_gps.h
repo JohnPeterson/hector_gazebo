@@ -85,6 +85,8 @@ private:
   double radius_north_;
   double radius_east_;
 
+  bool use_enu_; // otherwise use north west up
+
   SensorModel3 position_error_model_;
   SensorModel3 velocity_error_model_;
 

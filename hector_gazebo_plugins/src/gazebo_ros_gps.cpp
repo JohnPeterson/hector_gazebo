@@ -129,6 +129,27 @@ void GazeboRosGps::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
   if (_sdf->HasElement("service"))
     _sdf->GetElement("service")->GetValue()->Get(fix_.status.service);
 
+  if (_sdf->HasElement("coordinateMode"))
+  {
+    std::string mode;
+    _sdf->GetElement("coordinateMode")->GetValue()->Get(mode);
+
+    if (mode == "ENU")
+    {
+      use_enu_ = true;
+    }
+    else if (mode == "NWU")
+    {
+      use_enu_ = false;
+    }
+    else
+    {
+      ROS_ERROR("Unrecognized coordinate mode: %s, defaulting to NWU", mode.c_str());
+      use_enu_ = false;
+    }
+  }
+
+
   fix_.header.frame_id = frame_id_;
   velocity_.header.frame_id = frame_id_;
 
@@ -221,9 +242,20 @@ void GazeboRosGps::Update()
   fix_.header.stamp = ros::Time(sim_time.sec, sim_time.nsec);
   velocity_.header.stamp = fix_.header.stamp;
 
-  fix_.latitude  = reference_latitude_  + ( cos(reference_heading_) * position.x + sin(reference_heading_) * position.y) / radius_north_ * 180.0/M_PI;
-  fix_.longitude = reference_longitude_ - (-sin(reference_heading_) * position.x + cos(reference_heading_) * position.y) / radius_east_  * 180.0/M_PI;
+  // East North Up mode
+  if (use_enu_)
+  {
+    fix_.longitude  = reference_longitude_  + ( cos(reference_heading_) * position.x + sin(reference_heading_) * position.y) / radius_east_  * 180.0/M_PI;
+    fix_.latitude   = reference_latitude_   + (-sin(reference_heading_) * position.x + cos(reference_heading_) * position.y) / radius_north_ * 180.0/M_PI;
+  }
+  else // North West Up mode
+  {
+    fix_.latitude  = reference_latitude_  + ( cos(reference_heading_) * position.x + sin(reference_heading_) * position.y) / radius_north_ * 180.0/M_PI;
+    fix_.longitude = reference_longitude_ - (-sin(reference_heading_) * position.x + cos(reference_heading_) * position.y) / radius_east_  * 180.0/M_PI;
+  }
   fix_.altitude  = reference_altitude_  + position.z;
+  
+  // Velocity term left alone here, x, y, and z are still correct
   velocity_.vector.x =  cos(reference_heading_) * velocity.x + sin(reference_heading_) * velocity.y;
   velocity_.vector.y = -sin(reference_heading_) * velocity.x + cos(reference_heading_) * velocity.y;
   velocity_.vector.z = velocity.z;
